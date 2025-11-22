@@ -13,33 +13,39 @@ A FastAPI-based backend for the Quiz App, providing endpoints for quiz managemen
 ## Quick Start (Local Development)
 
 ### Prerequisites
+
 - Python 3.11+
 - MongoDB (local) or MongoDB Atlas account
 
 ### Installation
 
 1. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 2. Create `.env` file (copy from `.env.example`):
+
 ```bash
 cp .env.example .env
 ```
 
 3. Update `.env` with your MongoDB connection string:
+
 ```
 MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
 MONGODB_DB_NAME=quiz_app
 ```
 
 4. Run the server:
+
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 5. Access the API:
+
 - API: http://localhost:8000
 - Swagger Docs: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
@@ -51,10 +57,12 @@ See [RENDER_DEPLOYMENT_GUIDE.md](./RENDER_DEPLOYMENT_GUIDE.md) for detailed depl
 ### Quick Deploy Steps:
 
 1. **Set up MongoDB Atlas**
+
    - Create free cluster at https://cloud.mongodb.com/
    - Get connection string
 
 2. **Deploy to Render**
+
    - Push code to GitHub
    - Connect repository to Render
    - Add `MONGODB_URL` environment variable
@@ -70,6 +78,7 @@ See [RENDER_DEPLOYMENT_GUIDE.md](./RENDER_DEPLOYMENT_GUIDE.md) for detailed depl
 ## API Endpoints
 
 ### Core Resources
+
 - **Quizzes**: `/quizzes/*` - Create, read, update, delete quizzes
 - **Sessions**: `/sessions/*` - Manage quiz sessions
 - **Results**: `/results/*` - Track quiz results
@@ -80,6 +89,7 @@ See [RENDER_DEPLOYMENT_GUIDE.md](./RENDER_DEPLOYMENT_GUIDE.md) for detailed depl
 - **Categories**: `/categories/*` - Quiz categories
 
 ### Documentation
+
 - Swagger UI: `{baseUrl}/docs`
 - ReDoc: `{baseUrl}/redoc`
 
@@ -103,25 +113,28 @@ backend/
 
 ## Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MONGODB_URL` | MongoDB connection string | `mongodb+srv://...` |
-| `MONGODB_DB_NAME` | Database name | `quiz_app` |
-| `PORT` | Server port (auto-set by Render) | `8000` |
+| Variable          | Description                      | Example             |
+| ----------------- | -------------------------------- | ------------------- |
+| `MONGODB_URL`     | MongoDB connection string        | `mongodb+srv://...` |
+| `MONGODB_DB_NAME` | Database name                    | `quiz_app`          |
+| `PORT`            | Server port (auto-set by Render) | `8000`              |
 
 ## Development
 
 ### Run with auto-reload:
+
 ```bash
 uvicorn app.main:app --reload
 ```
 
 ### Run tests:
+
 ```bash
 pytest
 ```
 
 ### API Testing:
+
 - Import `QuizApp_API_Collection.postman_collection.json` into Postman
 - See `API_TESTING_REPORT.md` for detailed testing documentation
 

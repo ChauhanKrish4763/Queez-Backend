@@ -1,6 +1,7 @@
 # Quiz App Backend - Render Deployment Guide
 
 ## Prerequisites
+
 1. A Render account (sign up at https://render.com)
 2. MongoDB Atlas account (for cloud MongoDB) at https://www.mongodb.com/cloud/atlas
 
@@ -24,6 +25,7 @@
 3. Click "New +" → "Web Service"
 4. Connect your GitHub repository
 5. Configure the service:
+
    - **Name**: `quiz-app-backend` (or your preferred name)
    - **Region**: Choose closest to your users
    - **Branch**: `main` or `master`
@@ -34,6 +36,7 @@
    - **Instance Type**: Free (or paid if needed)
 
 6. Add Environment Variables:
+
    - Click "Advanced" → "Add Environment Variable"
    - Add `MONGODB_URL` with your MongoDB Atlas connection string
    - Add `MONGODB_DB_NAME` with value `quiz_app`
@@ -51,6 +54,7 @@
 ## Step 3: Get Your Backend URL
 
 After deployment completes (takes 2-3 minutes):
+
 1. Render will provide you a URL like: `https://quiz-app-backend.onrender.com`
 2. Test it by visiting: `https://quiz-app-backend.onrender.com/` (should show API running message)
 3. Check API docs at: `https://quiz-app-backend.onrender.com/docs`
@@ -69,30 +73,36 @@ After deployment completes (takes 2-3 minutes):
 ## Important Notes
 
 ### Free Tier Limitations
+
 - Render free tier spins down after 15 minutes of inactivity
 - First request after spin-down takes 30-60 seconds (cold start)
 - Solution: Use a paid plan ($7/month) for always-on service, or ping your service periodically
 
 ### MongoDB Connection
+
 - Make sure MongoDB Atlas is configured to allow connections from anywhere (0.0.0.0/0)
 - Or add Render's IP addresses to whitelist (check Render docs for current IPs)
 
 ### CORS Configuration
+
 - The backend is already configured to allow all origins (`CORS_ORIGINS = ["*"]`)
 - For production, you should restrict this to your specific domains
 
 ## Troubleshooting
 
 ### Service won't start
+
 - Check logs in Render dashboard
 - Verify environment variables are set correctly
 - Ensure MongoDB connection string is correct
 
 ### Connection timeouts
+
 - Check MongoDB Atlas network access settings
 - Verify connection string format
 
 ### 502 Bad Gateway
+
 - Usually means service is still starting up
 - Wait a minute and try again
 - Check Render logs for errors
@@ -106,10 +116,12 @@ After deployment completes (takes 2-3 minutes):
 ## Cost Optimization
 
 **Free Tier:**
+
 - 750 hours/month free (enough for one always-on service)
 - Automatically spins down after inactivity
 
 **Paid Tier ($7/month):**
+
 - Always-on
 - No spin-down delays
 - Better performance
