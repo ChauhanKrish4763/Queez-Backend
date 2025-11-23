@@ -8,15 +8,16 @@ router = APIRouter(prefix="/library", tags=["library"])
 # Get collections
 quiz_collection = db["quizzes"]
 flashcard_collection = db["flashcard_sets"]
+note_collection = db["notes"]
 
 class LibraryItem(BaseModel):
     id: str
-    type: str  # "quiz" or "flashcard"
+    type: str  # "quiz", "flashcard", or "note"
     title: str
     description: str
     coverImagePath: str
     createdAt: str
-    itemCount: int  # questionCount for quizzes, cardCount for flashcards
+    itemCount: int  # questionCount for quizzes, cardCount for flashcards, 0 for notes
     category: str
     language: str = ""  # Only for quizzes
     originalOwner: str | None = None
@@ -28,7 +29,7 @@ class UnifiedLibraryResponse(BaseModel):
     data: List[LibraryItem]
     count: int
 
-@router.get("/{user_id}", response_model=UnifiedLibraryResponse, summary="Get all quizzes and flashcards for a user")
+@router.get("/{user_id}", response_model=UnifiedLibraryResponse, summary="Get all quizzes, flashcards, and notes for a user")
 async def get_unified_library(user_id: str):
     try:
         fallback_image = "https://img.freepik.com/free-vector/student-asking-teacher-concept-illustration_114360-19831.jpg?ga=GA1.1.377073698.1750732876&semt=ais_items_boosted&w=740"
@@ -67,6 +68,20 @@ async def get_unified_library(user_id: str):
         )
         flashcards = await flashcard_cursor.to_list(length=None)
         
+        # Fetch notes
+        note_cursor = note_collection.find(
+            {"creatorId": user_id},
+            {
+                "title": 1,
+                "description": 1,
+                "coverImagePath": 1,
+                "createdAt": 1,
+                "category": 1,
+                "_id": 1
+            }
+        )
+        notes = await note_cursor.to_list(length=None)
+        
         # Convert quizzes to LibraryItem
         library_items = []
         for quiz in quizzes:
@@ -97,6 +112,21 @@ async def get_unified_library(user_id: str):
                 itemCount=len(flashcard_set.get("cards", [])),
                 category=flashcard_set.get("category", ""),
                 originalOwner=flashcard_set.get("originalOwner"),
+                originalOwnerUsername=None
+            ))
+        
+        # Convert notes to LibraryItem
+        for note in notes:
+            library_items.append(LibraryItem(
+                id=str(note["_id"]),
+                type="note",
+                title=note.get("title", "Untitled Note"),
+                description=note.get("description", ""),
+                coverImagePath=note.get("coverImagePath") or fallback_image,
+                createdAt=note.get("createdAt", ""),
+                itemCount=0,  # Notes don't have a count
+                category=note.get("category", ""),
+                originalOwner=None,
                 originalOwnerUsername=None
             ))
         
