@@ -381,10 +381,35 @@ async def add_quiz_to_library(data: dict):
         if not user_id or not quiz_code:
             raise HTTPException(status_code=400, detail="user_id and quiz_code are required")
         
-        # Import sessions_collection and users_collection here to avoid circular imports
-        from app.core.database import sessions_collection, users_collection
+        # Import required modules
+        from app.core.database import sessions_collection, redis_client
+        from app.services.session_manager import SessionManager
         
-        # Find the session by code
+        session_manager = SessionManager()
+        
+        # First, check Redis for live multiplayer sessions
+        redis_session = await session_manager.get_session(quiz_code)
+        
+        if redis_session:
+            # This is a live multiplayer session - don't add to library
+            quiz_id = redis_session.get("quiz_id")
+            mode = redis_session.get("mode", "live")
+            
+            # Get quiz details for response
+            quiz = await collection.find_one({"_id": ObjectId(quiz_id)})
+            
+            if not quiz:
+                raise HTTPException(status_code=404, detail="Quiz not found")
+            
+            return {
+                "success": True,
+                "mode": mode,
+                "quiz_id": quiz_id,
+                "quiz_title": quiz.get("title", "Untitled Quiz"),
+                "message": "Live multiplayer session - playing host's quiz, not added to your library"
+            }
+        
+        # If not in Redis, check MongoDB for other session types (self_paced, timed_individual)
         session = await sessions_collection.find_one({"session_code": quiz_code})
         
         if not session:
@@ -399,8 +424,8 @@ async def add_quiz_to_library(data: dict):
         if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
         
-        # For live_multiplayer mode, don't save to library
-        if mode == "live_multiplayer":
+        # For live_multiplayer mode (if somehow in MongoDB), don't save to library
+        if mode == "live_multiplayer" or mode == "live":
             return {
                 "success": True,
                 "mode": mode,
