@@ -86,10 +86,11 @@ async def get_unified_library(user_id: str):
         # Fetch study sets from MongoDB
         study_sets = []
         try:
-            study_sets_cursor = study_sets_collection.find({\"ownerId\": user_id})
+            study_sets_cursor = study_sets_collection.find({"ownerId": user_id})
             study_sets = await study_sets_cursor.to_list(length=None)
         except Exception as e:
-            print(f\"Error fetching study sets: {e}\")\n            # Continue even if study sets fail
+            print(f"Error fetching study sets: {e}")
+            # Continue even if study sets fail
         
         # Convert quizzes to LibraryItem
         library_items = []
