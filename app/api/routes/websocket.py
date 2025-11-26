@@ -63,6 +63,9 @@ async def websocket_endpoint(websocket: WebSocket, session_code: str, user_id: s
                 elif message_type == "end_quiz":
                     await handle_end_quiz(websocket, session_code, user_id)
                 
+                elif message_type == "request_leaderboard":
+                    await handle_request_leaderboard(websocket, session_code, user_id)
+                
                 else:
                     logger.warning(f"Unknown message type: {message_type}")
 
@@ -400,3 +403,59 @@ async def handle_end_quiz(websocket: WebSocket, session_code: str, user_id: str)
             "results": final_results
         }
     }, session_code)
+
+
+async def handle_request_leaderboard(websocket: WebSocket, session_code: str, user_id: str):
+    """Participant requests real-time leaderboard with question progress"""
+    logger.info(f"🏆 LEADERBOARD_REQUEST - User {user_id} requesting leaderboard for session {session_code}")
+    
+    # Get session data with participants
+    session = await session_manager.get_session(session_code)
+    if not session:
+        logger.error(f"❌ Session {session_code} not found")
+        await manager.send_personal_message({
+            "type": "error",
+            "payload": {"message": "Session not found"}
+        }, websocket)
+        return
+    
+    participants = session.get("participants", {})
+    total_questions = session.get("total_questions", 0)
+    
+    # Build leaderboard with question progress
+    leaderboard_entries = []
+    for participant_id, participant_data in participants.items():
+        # Get participant's current question index
+        question_index = await game_controller.get_participant_question_index(session_code, participant_id)
+        
+        # Count answered questions from their answers array
+        answers = participant_data.get("answers", [])
+        answered_count = len(answers)
+        
+        leaderboard_entries.append({
+            "user_id": participant_id,
+            "username": participant_data.get("username", "Unknown"),
+            "score": participant_data.get("score", 0),
+            "question_index": question_index,
+            "answered_count": answered_count,
+            "total_questions": total_questions,
+            "connected": participant_data.get("connected", False)
+        })
+    
+    # Sort by score (descending)
+    leaderboard_entries.sort(key=lambda x: x["score"], reverse=True)
+    
+    logger.info(f"📊 LEADERBOARD_REQUEST - Sending {len(leaderboard_entries)} entries to {user_id}")
+    for i, entry in enumerate(leaderboard_entries[:5]):
+        logger.info(f"   {i+1}. {entry['username']}: {entry['score']} pts (Q{entry['answered_count']}/{total_questions})")
+    
+    # Send leaderboard to requesting user
+    await manager.send_personal_message({
+        "type": "leaderboard_response",
+        "payload": {
+            "leaderboard": leaderboard_entries,
+            "total_questions": total_questions
+        }
+    }, websocket)
+    
+    logger.info(f"✅ LEADERBOARD_REQUEST - Sent leaderboard to {user_id}")
