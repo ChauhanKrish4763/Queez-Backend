@@ -6,6 +6,7 @@ from app.services.game_controller import GameController
 from app.services.leaderboard_manager import LeaderboardManager
 import json
 import logging
+import asyncio
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -13,6 +14,9 @@ logger = logging.getLogger(__name__)
 session_manager = SessionManager()
 game_controller = GameController()
 leaderboard_manager = LeaderboardManager()
+
+# Store active timers for auto-advance
+active_timers = {}
 
 @router.websocket("/api/ws/{session_code}")
 async def websocket_endpoint(websocket: WebSocket, session_code: str, user_id: str = Query(...)):
@@ -193,6 +197,63 @@ async def handle_join(websocket: WebSocket, session_code: str, user_id: str, pay
         logger.error(f"❌ Failed to add {username} (ID: {user_id}) to session {session_code}")
 
 
+async def auto_advance_question(session_code: str, time_limit: int, question_index: int):
+    """Auto-advance to next question after timeout"""
+    try:
+        await asyncio.sleep(time_limit + 2)  # Wait for time limit + 2 second buffer
+        
+        # Check if session is still active
+        session = await session_manager.get_session(session_code)
+        if not session or session.get("status") != "active":
+            logger.info(f"⏰ AUTO_ADVANCE - Session {session_code} no longer active, skipping")
+            return
+        
+        # Check if we're still on the same question
+        from app.core.database import redis_client
+        current_index = await redis_client.hget(f"session:{session_code}", "current_question_index")
+        if current_index and int(current_index) != question_index:
+            logger.info(f"⏰ AUTO_ADVANCE - Session {session_code} already moved past question {question_index}, skipping")
+            return
+        
+        logger.info(f"⏰ AUTO_ADVANCE - Time expired for session {session_code} question {question_index}, advancing...")
+        
+        # Get next question
+        question_data = await game_controller.next_question(session_code)
+        
+        if question_data:
+            # Send next question to all
+            await manager.broadcast_to_session({
+                "type": "question",
+                "payload": question_data
+            }, session_code)
+            logger.info(f"✅ AUTO_ADVANCE - Sent next question to session {session_code}")
+            
+            # Start timer for next question
+            next_time_limit = question_data.get("time_limit", time_limit)
+            timer_key = f"{session_code}:{question_index + 1}"
+            active_timers[timer_key] = asyncio.create_task(
+                auto_advance_question(session_code, next_time_limit, question_index + 1)
+            )
+        else:
+            # No more questions - end quiz
+            logger.info(f"🏁 AUTO_ADVANCE - No more questions, ending quiz for session {session_code}")
+            await session_manager.end_session(session_code)
+            
+            # Get final results
+            final_results = await leaderboard_manager.get_final_results(session_code)
+            
+            # Broadcast quiz end
+            await manager.broadcast_to_session({
+                "type": "quiz_ended",
+                "payload": {
+                    "message": "Quiz completed!",
+                    "results": final_results
+                }
+            }, session_code)
+    except Exception as e:
+        logger.error(f"❌ AUTO_ADVANCE - Error: {e}")
+
+
 async def handle_start_quiz(websocket: WebSocket, session_code: str, user_id: str, payload: dict = None):
     """Host starts the quiz"""
     is_host = await session_manager.is_host(session_code, user_id)
@@ -260,6 +321,12 @@ async def handle_start_quiz(websocket: WebSocket, session_code: str, user_id: st
         "type": "question",
         "payload": question_data
     }, session_code)
+    
+    # Start auto-advance timer for first question
+    timer_key = f"{session_code}:0"
+    active_timers[timer_key] = asyncio.create_task(
+        auto_advance_question(session_code, per_question_time_limit, 0)
+    )
 
 
 
@@ -267,8 +334,10 @@ async def handle_submit_answer(websocket: WebSocket, session_code: str, user_id:
     """Participant submits an answer"""
     answer = payload.get("answer")
     timestamp = payload.get("timestamp", datetime.utcnow().timestamp())
+    is_timeout = payload.get("timeout", False)
     
-    if answer is None:
+    # Allow null answers for timeouts
+    if answer is None and not is_timeout:
         logger.error(f"❌ ANSWER - No answer provided in payload: {payload}")
         await manager.send_personal_message({
             "type": "error",
@@ -276,7 +345,10 @@ async def handle_submit_answer(websocket: WebSocket, session_code: str, user_id:
         }, websocket)
         return
     
-    logger.info(f"📝 ANSWER - User {user_id} submitted answer: {answer} (timestamp: {timestamp})")
+    if is_timeout:
+        logger.info(f"⏰ ANSWER - User {user_id} timed out (no answer submitted)")
+    else:
+        logger.info(f"📝 ANSWER - User {user_id} submitted answer: {answer} (timestamp: {timestamp})")
     
     # Process answer
     result = await game_controller.submit_answer(
@@ -317,6 +389,16 @@ async def handle_next_question(websocket: WebSocket, session_code: str, user_id:
         }, websocket)
         return
     
+    # Cancel existing timer for current question
+    from app.core.database import redis_client
+    current_index = await redis_client.hget(f"session:{session_code}", "current_question_index")
+    if current_index:
+        timer_key = f"{session_code}:{current_index}"
+        if timer_key in active_timers:
+            active_timers[timer_key].cancel()
+            del active_timers[timer_key]
+            logger.info(f"⏰ Cancelled auto-advance timer for question {current_index}")
+    
     # Get next question
     question_data = await game_controller.next_question(session_code)
     
@@ -326,6 +408,15 @@ async def handle_next_question(websocket: WebSocket, session_code: str, user_id:
             "type": "question",
             "payload": question_data
         }, session_code)
+        
+        # Start auto-advance timer for new question
+        next_index = question_data.get("index", 0)
+        time_limit = question_data.get("time_limit", 30)
+        timer_key = f"{session_code}:{next_index}"
+        active_timers[timer_key] = asyncio.create_task(
+            auto_advance_question(session_code, time_limit, next_index)
+        )
+        logger.info(f"⏰ Started auto-advance timer for question {next_index} ({time_limit}s)")
     else:
         # No more questions - quiz complete
         await handle_end_quiz(websocket, session_code, user_id)

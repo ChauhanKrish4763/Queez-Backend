@@ -138,7 +138,11 @@ class GameController:
         # Handle different question types
         is_correct = False
         
-        if question_type in ["singleMcq", "trueFalse"]:
+        # Handle timeout (null answer)
+        if answer is None:
+            logger.info(f"⏰ Timeout - user {user_id} did not answer in time")
+            is_correct = False
+        elif question_type in ["singleMcq", "trueFalse"]:
             # Single answer questions
             correct_answer = question.get("correctAnswerIndex")
             if correct_answer is None:
