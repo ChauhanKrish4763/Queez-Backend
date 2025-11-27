@@ -16,7 +16,7 @@ class SessionManager:
         self.redis = redis_client
 
     async def create_session(self, quiz_id: str, host_id: str, mode: str = "live", 
-                            overall_time_limit: int = 0, per_question_time_limit: int = 30) -> str:
+                            per_question_time_limit: int = 30) -> str:
         """Create a new session and return the session code"""
         # Generate unique code
         session_code = await self._generate_unique_code()
@@ -39,9 +39,7 @@ class SessionManager:
             "quiz_title": quiz.get("title", "Untitled Quiz"),
             "total_questions": len(quiz.get("questions", [])),
             "participants": "{}",  # JSON string of participant dict
-            "overall_time_limit": overall_time_limit,  # 0 = no limit
-            "per_question_time_limit": per_question_time_limit,
-            "quiz_start_time": ""  # Will be set when quiz starts
+            "per_question_time_limit": per_question_time_limit
         }
         
         # Store in Redis with expiration

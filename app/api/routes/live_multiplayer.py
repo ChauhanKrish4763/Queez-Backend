@@ -17,7 +17,6 @@ class CreateLiveSessionRequest(BaseModel):
     quiz_id: str
     host_id: str
     mode: str = "live"
-    overall_time_limit: Optional[int] = 0  # 0 = no limit, in seconds
     per_question_time_limit: Optional[int] = 30  # Default 30 seconds per question
 
 
@@ -44,7 +43,6 @@ async def create_live_session(request: CreateLiveSessionRequest):
             quiz_id=request.quiz_id,
             host_id=request.host_id,
             mode=request.mode,
-            overall_time_limit=request.overall_time_limit,
             per_question_time_limit=request.per_question_time_limit
         )
         

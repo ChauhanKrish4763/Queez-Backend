@@ -206,16 +206,12 @@ async def handle_start_quiz(websocket: WebSocket, session_code: str, user_id: st
     
     # Extract time settings from payload
     if payload:
-        overall_time_limit = payload.get('overall_time_limit', 0)
         per_question_time_limit = payload.get('per_question_time_limit', 30)
         
         # Update session with time settings
         from app.core.database import redis_client
-        await redis_client.hset(f"session:{session_code}", mapping={
-            "overall_time_limit": overall_time_limit,
-            "per_question_time_limit": per_question_time_limit
-        })
-        logger.info(f"⏱️ Updated time settings: overall={overall_time_limit}s, per_question={per_question_time_limit}s")
+        await redis_client.hset(f"session:{session_code}", "per_question_time_limit", per_question_time_limit)
+        logger.info(f"⏱️ Updated time settings: per_question={per_question_time_limit}s")
     
     # Start the quiz - update session status
     success = await session_manager.start_session(session_code, user_id)
@@ -248,7 +244,6 @@ async def handle_start_quiz(websocket: WebSocket, session_code: str, user_id: st
         return
     
     # Get time settings for the quiz_started payload
-    overall_time_limit = int(session.get("overall_time_limit", 0))
     per_question_time_limit = int(session.get("per_question_time_limit", 30))
     
     # Broadcast quiz started to all participants with time settings
@@ -256,7 +251,6 @@ async def handle_start_quiz(websocket: WebSocket, session_code: str, user_id: st
         "type": "quiz_started",
         "payload": {
             "message": "Quiz is starting!",
-            "overall_time_limit": overall_time_limit,
             "per_question_time_limit": per_question_time_limit
         }
     }, session_code)
