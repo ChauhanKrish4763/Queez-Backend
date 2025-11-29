@@ -440,6 +440,7 @@ async def handle_request_next_question(websocket: WebSocket, session_code: str, 
         # Get final results
         final_results = await leaderboard_manager.get_final_results(session_code)
         
+        # Send completion message to participant
         await manager.send_personal_message({
             "type": "quiz_completed",
             "payload": {
@@ -448,6 +449,15 @@ async def handle_request_next_question(websocket: WebSocket, session_code: str, 
             }
         }, websocket)
         logger.info(f"✅ SELF_PACED - Sent completion message to {user_id}")
+        
+        # Broadcast updated leaderboard to everyone (including host)
+        leaderboard = await leaderboard_manager.get_leaderboard(session_code)
+        await manager.broadcast_to_session({
+            "type": "leaderboard_update",
+            "payload": {"leaderboard": leaderboard}
+        }, session_code)
+        logger.info(f"📢 SELF_PACED - Broadcasted leaderboard update after {user_id} completed")
+        
         return
     
     # Increment their question index
@@ -474,6 +484,7 @@ async def handle_request_next_question(websocket: WebSocket, session_code: str, 
         # Get final results
         final_results = await leaderboard_manager.get_final_results(session_code)
         
+        # Send completion message to participant
         await manager.send_personal_message({
             "type": "quiz_completed",
             "payload": {
@@ -482,6 +493,14 @@ async def handle_request_next_question(websocket: WebSocket, session_code: str, 
             }
         }, websocket)
         logger.info(f"✅ SELF_PACED - Sent completion message to {user_id}")
+        
+        # Broadcast updated leaderboard to everyone (including host)
+        leaderboard = await leaderboard_manager.get_leaderboard(session_code)
+        await manager.broadcast_to_session({
+            "type": "leaderboard_update",
+            "payload": {"leaderboard": leaderboard}
+        }, session_code)
+        logger.info(f"📢 SELF_PACED - Broadcasted leaderboard update after {user_id} completed")
 
 
 async def handle_end_quiz(websocket: WebSocket, session_code: str, user_id: str):
