@@ -88,7 +88,10 @@ async def create_study_set(study_set: StudySetCreate):
     """Create a new study set"""
     try:
         study_set_data = study_set.dict()
-        study_set_data['createdAt'] = datetime.utcnow().isoformat()
+        
+        # Format createdAt as "Month, Year"
+        now = datetime.utcnow()
+        study_set_data['createdAt'] = now.strftime("%B, %Y")
         study_set_data['updatedAt'] = datetime.utcnow().isoformat()
         
         # Save to MongoDB
